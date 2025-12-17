@@ -27,7 +27,7 @@ function BarcodeScanner({ onScan, onError }) {
       // Test if it actually works
       try {
         // eslint-disable-next-line no-undef
-        const testDetector = new BarcodeDetector({ formats: ["ean_13"] });
+        new BarcodeDetector({ formats: ["ean_13"] });
         console.log("✅ BarcodeDetector API is functional");
       } catch (err) {
         console.warn(
@@ -115,6 +115,12 @@ function BarcodeScanner({ onScan, onError }) {
         );
         onScan?.(barcodeValue);
         setScanStatus(`✓ Scanned: ${barcodeValue}`);
+        
+        // Auto-stop camera after successful scan
+        setTimeout(() => {
+          stopScanning();
+        }, 500); // Small delay to show the success message
+        
         return true;
       } else {
         // No barcode detected in this frame
@@ -336,6 +342,11 @@ function BarcodeScanner({ onScan, onError }) {
             console.log("📦 Processing:", decodedText);
             setScanStatus(`✓ Scanned: ${decodedText}`);
             onScan?.(decodedText);
+            
+            // Auto-stop camera after successful scan
+            setTimeout(async () => {
+              await stopScanning();
+            }, 500); // Small delay to show the success message
           },
           (errorMessage) => {
             // When no barcode is detected, increment counter
@@ -599,26 +610,16 @@ function BarcodeScanner({ onScan, onError }) {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log("🔘 Button clicked, isScanning:", isScanning);
             if (isScanning) {
               stopScanning();
             } else {
               startScanning();
             }
           }}
-          style={{
-            minWidth: "200px",
-            minHeight: "44px", // Better touch target for mobile
-            fontSize: "16px",
-            padding: "12px 20px",
-          }}
         >
-          {isScanning ? "Stop Camera" : "Start Camera Scanner"}
+          {isScanning ? "⏹️ Stop Camera" : "▶️ Start Camera Scanner"}
         </button>
-        <label
-          className="btn btn-secondary"
-          style={{ cursor: "pointer", margin: 0 }}
-        >
+        <label className="btn btn-secondary">
           📷 Scan from Photo
           <input
             type="file"
@@ -664,59 +665,27 @@ function BarcodeScanner({ onScan, onError }) {
         ></div>
       </div>
       {!isScanning && (
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "500px",
-            height: "300px",
-            margin: "0 auto",
-            background: "#f0f0f0",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: "5px",
-            color: "#999",
-            padding: "20px",
-            textAlign: "center",
-          }}
-        >
-          <p style={{ marginBottom: "10px" }}>Camera scanner inactive.</p>
-          <div style={{ fontSize: "12px" }}>
+        <div className="scanner-inactive">
+          <div className="scanner-inactive-icon">📷</div>
+          <h3 className="scanner-inactive-title">Camera Scanner Inactive</h3>
+          <p className="scanner-inactive-subtitle">
+            Click "Start Camera Scanner" to begin scanning items
+          </p>
+          <div className="scanner-status-info">
             {useNativeAPI ? (
-              <p style={{ color: "#27ae60", fontWeight: "bold" }}>
-                ✅ Native barcode detection available - Best for barcodes!
-              </p>
+              <div className="scanner-status-badge success">
+                <span className="badge-icon">✅</span>
+                <span className="badge-text">Native barcode detection available</span>
+              </div>
             ) : (
               <>
-                <p
-                  style={{
-                    color: "#d32f2f",
-                    fontWeight: "bold",
-                    marginBottom: "10px",
-                  }}
-                >
-                  ⚠️ Limited barcode support detected
-                </p>
-                <div
-                  style={{
-                    background: "#fff3cd",
-                    padding: "10px",
-                    borderRadius: "5px",
-                    border: "1px solid #ffc107",
-                  }}
-                >
-                  <strong style={{ color: "#856404" }}>
-                    Enable Better Scanning:
-                  </strong>
-                  <ol
-                    style={{
-                      margin: "5px 0",
-                      paddingLeft: "20px",
-                      color: "#856404",
-                      fontSize: "11px",
-                    }}
-                  >
+                <div className="scanner-status-badge warning">
+                  <span className="badge-icon">⚠️</span>
+                  <span className="badge-text">Limited barcode support detected</span>
+                </div>
+                <div className="scanner-instructions">
+                  <strong>Enable Better Scanning:</strong>
+                  <ol>
                     <li>
                       Go to <code>chrome://flags</code>
                     </li>
@@ -730,18 +699,9 @@ function BarcodeScanner({ onScan, onError }) {
         </div>
       )}
       {isScanning && (
-        <div
-          style={{
-            marginTop: "10px",
-            padding: "10px",
-            background: "#f8f9fa",
-            borderRadius: "5px",
-            fontSize: "12px",
-            color: "#666",
-          }}
-        >
+        <div className="scanner-status-active">
           <strong>Tips for better scanning:</strong>
-          <ul style={{ margin: "5px 0", paddingLeft: "20px" }}>
+          <ul>
             <li>
               <strong>Good lighting is critical</strong> - Use bright, even
               lighting
@@ -766,21 +726,9 @@ function BarcodeScanner({ onScan, onError }) {
             </li>
           </ul>
           {!useNativeAPI && (
-            <div
-              style={{
-                marginTop: "10px",
-                padding: "8px",
-                background: "#ffebee",
-                borderRadius: "3px",
-                border: "1px solid #f44336",
-              }}
-            >
-              <strong style={{ color: "#c62828" }}>
-                ⚠️ Limited Detection:
-              </strong>
-              <p
-                style={{ margin: "5px 0", fontSize: "11px", color: "#c62828" }}
-              >
+            <div className="scanner-limited-detection">
+              <strong>⚠️ Limited Detection:</strong>
+              <p>
                 Enable native detection in Chrome for much better results. See
                 instructions above.
               </p>

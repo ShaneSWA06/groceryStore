@@ -79,44 +79,60 @@ function AdminLogin() {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #1a365d 0%, #0f2439 100%)",
-        padding: "20px",
-      }}
-    >
+    <>
+      <style>
+        {`
+          input::placeholder {
+            color: #64748b !important;
+            opacity: 1;
+          }
+        `}
+      </style>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #1a365d 0%, #0f2439 100%)",
+          padding: "20px",
+        }}
+      >
       <div
         className="card"
         style={{
           maxWidth: "420px",
           width: "100%",
           boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+          background: "#1e293b",
+          border: "1px solid #334155",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "30px" }}>
           <div
             style={{
-              width: "60px",
-              height: "60px",
+              width: "120px",
+              height: "120px",
               margin: "0 auto 20px",
-              background: "linear-gradient(135deg, #1a365d 0%, #2c5282 100%)",
-              borderRadius: "12px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "28px",
             }}
           >
-            🔐
+            <img
+              src="/images/zawkhinLogoTrans.png"
+              alt="POS System Logo"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+              }}
+            />
           </div>
           <h1
             style={{
               marginBottom: "8px",
-              color: "#1a365d",
+              color: "#ffffff",
               fontSize: "28px",
               fontWeight: "700",
               letterSpacing: "-0.5px",
@@ -129,7 +145,7 @@ function AdminLogin() {
               marginBottom: "0",
               fontSize: "18px",
               fontWeight: "500",
-              color: "#64748b",
+              color: "#cbd5e1",
             }}
           >
             Administrator Access
@@ -156,7 +172,7 @@ function AdminLogin() {
               style={{
                 marginBottom: "8px",
                 fontWeight: "600",
-                color: "#374151",
+                color: "#e2e8f0",
               }}
             >
               Username
@@ -178,7 +194,9 @@ function AdminLogin() {
                 fontSize: "15px",
                 border: error
                   ? "2px solid #dc2626"
-                  : "1px solid var(--border-color)",
+                  : "1px solid #475569",
+                background: "#0f172a",
+                color: "#ffffff",
               }}
               disabled={loading}
             />
@@ -189,7 +207,7 @@ function AdminLogin() {
               style={{
                 marginBottom: "8px",
                 fontWeight: "600",
-                color: "#374151",
+                color: "#e2e8f0",
               }}
             >
               Password
@@ -212,7 +230,9 @@ function AdminLogin() {
                   width: "100%",
                   border: error
                     ? "2px solid #dc2626"
-                    : "1px solid var(--border-color)",
+                    : "1px solid #475569",
+                  background: "#0f172a",
+                  color: "#ffffff",
                 }}
                 disabled={loading}
               />
@@ -228,7 +248,7 @@ function AdminLogin() {
                   border: "none",
                   cursor: "pointer",
                   padding: "4px",
-                  color: "#64748b",
+                  color: "#cbd5e1",
                   fontSize: "18px",
                 }}
                 tabIndex={-1}
@@ -277,8 +297,8 @@ function AdminLogin() {
               fontSize: "14px",
               padding: "10px",
               background: "transparent",
-              color: "#64748b",
-              border: "1px solid var(--border-color)",
+              color: "#cbd5e1",
+              border: "1px solid #475569",
             }}
             disabled={loading}
           >
@@ -287,6 +307,7 @@ function AdminLogin() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

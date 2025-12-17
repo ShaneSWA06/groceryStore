@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import Admin from "./components/Admin";
 import Cashier from "./components/Cashier";
 import CashierLogin from "./components/CashierLogin";
@@ -15,9 +16,10 @@ import "./App.css";
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
+    <ThemeProvider>
+      <Router>
+        <div className="App">
+          <Routes>
           <Route path="/login" element={<CashierLogin />} />
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/mobile-scanner" element={<MobileScanner />} />
@@ -38,9 +40,10 @@ function App() {
             }
           />
           <Route path="/" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </div>
-    </Router>
+          </Routes>
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 

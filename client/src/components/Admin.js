@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import BarcodeScanner from "./BarcodeScanner";
+import Sidebar from "./Sidebar";
 
 // Format number with commas and no decimals
 const formatCurrency = (value) => {
@@ -357,45 +358,34 @@ function Admin() {
     }
   };
 
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
-    <div className="container">
-      <div className="header">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
+    <div className="app-layout">
+      <Sidebar 
+        user={user} 
+        onLogout={handleLogout} 
+        currentView={currentView} 
+        onViewChange={setCurrentView}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+      <div className="main-content">
+        {/* Mobile Menu Button */}
+        <button 
+          className="mobile-menu-btn"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
         >
-          <div>
-            <h1>Admin - Manage Items</h1>
-            {user && (
-              <p style={{ margin: 0, fontSize: "14px" }}>
-                Logged in as: {user.fullName || user.username} ({user.role})
-              </p>
-            )}
-          </div>
-          <div>
-            <button
-              className="btn btn-secondary"
-              onClick={handleLogout}
-              style={{ marginLeft: "10px" }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-        <div className="nav">
-          <button onClick={() => navigate("/cashier")}>Cashier</button>
-          <button className="active">Admin</button>
-        </div>
-      </div>
+          <span></span>
+        </button>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      {/* Statistics Dashboard */}
-      {user?.role === "admin" && (
+      {/* Dashboard View */}
+      {currentView === 'dashboard' && user?.role === "admin" && (
         <div className="card">
           <div
             style={{
@@ -423,6 +413,7 @@ function Admin() {
             <>
               {/* Stock Overview */}
               <div
+                className="stats-grid"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -531,6 +522,7 @@ function Admin() {
                   Today's Sales
                 </h3>
                 <div
+                  className="sales-grid"
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
@@ -650,7 +642,7 @@ function Admin() {
 
                   return (
                     <div style={{ marginBottom: "25px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "15px" }}>
+                      <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", flexWrap: "wrap", gap: "15px" }}>
                         <h3
                           style={{
                             margin: 0,
@@ -665,7 +657,7 @@ function Admin() {
                       </div>
 
                       {/* Filters */}
-                      <div style={{ 
+                      <div className="filter-container" style={{ 
                         display: "flex", 
                         gap: "10px", 
                         marginBottom: "15px", 
@@ -702,7 +694,8 @@ function Admin() {
                             border: "1px solid var(--border-color)",
                             borderRadius: "6px",
                             fontSize: "14px",
-                            background: "white",
+                            background: "var(--bg-primary)",
+                            color: "var(--text-primary)",
                             minWidth: "150px"
                           }}
                         >
@@ -724,7 +717,8 @@ function Admin() {
                             border: "1px solid var(--border-color)",
                             borderRadius: "6px",
                             fontSize: "14px",
-                            background: "white",
+                            background: "var(--bg-primary)",
+                            color: "var(--text-primary)",
                             minWidth: "150px"
                           }}
                         >
@@ -739,23 +733,23 @@ function Admin() {
                           <table>
                             <thead>
                               <tr>
-                                <th>Item Name</th>
-                                <th>Barcode</th>
-                                <th>Category</th>
-                                <th>Price</th>
-                                <th>Stock Left</th>
+                                <th className="col-name">Item Name</th>
+                                <th className="col-barcode">Barcode</th>
+                                <th className="col-category">Category</th>
+                                <th className="col-price">Price</th>
+                                <th className="col-stock">Stock Left</th>
                               </tr>
                             </thead>
                             <tbody>
                               {paginatedLowStock.map((item) => (
                                 <tr key={item.id}>
-                                  <td>
+                                  <td className="col-name">
                                     <strong>{item.name}</strong>
                                   </td>
-                                  <td>{item.barcode}</td>
-                                  <td>{item.category || "-"}</td>
-                                  <td>MMK {formatCurrency(item.price)}</td>
-                                  <td>
+                                  <td className="col-barcode">{item.barcode}</td>
+                                  <td className="col-category">{item.category || "-"}</td>
+                                  <td className="col-price">MMK {formatCurrency(item.price)}</td>
+                                  <td className="col-stock">
                                     <span
                                       style={{
                                         padding: "4px 8px",
@@ -780,7 +774,7 @@ function Admin() {
 
                           {/* Pagination */}
                           {totalPages > 1 && (
-                            <div style={{ 
+                            <div className="pagination-controls" style={{ 
                               display: "flex", 
                               justifyContent: "center", 
                               alignItems: "center", 
@@ -841,8 +835,11 @@ function Admin() {
         </div>
       )}
 
+      {/* Inventory View */}
+      {currentView === 'inventory' && (
       <div className="card">
         <div
+          className="section-header"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -850,15 +847,20 @@ function Admin() {
             marginBottom: "20px",
           }}
         >
-          <h2>Inventory Items</h2>
-          <button className="btn btn-primary" onClick={handleAddNew}>
-            Add New Item
+          <div>
+            <h2 style={{ marginBottom: "4px" }}>Inventory Management</h2>
+            <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "14px" }}>
+              {items.length} products
+            </p>
+          </div>
+          <button className="btn btn-purple" onClick={handleAddNew}>
+            + Add Product
           </button>
         </div>
 
         {/* Filters */}
         {items.length > 0 && (
-          <div style={{ 
+          <div className="filter-container" style={{ 
             display: "flex", 
             gap: "10px", 
             marginBottom: "20px", 
@@ -895,7 +897,8 @@ function Admin() {
                 border: "1px solid var(--border-color)",
                 borderRadius: "6px",
                 fontSize: "14px",
-                background: "white",
+                background: "var(--bg-primary)",
+                color: "var(--text-primary)",
                 minWidth: "150px"
               }}
             >
@@ -917,7 +920,8 @@ function Admin() {
                 border: "1px solid var(--border-color)",
                 borderRadius: "6px",
                 fontSize: "14px",
-                background: "white",
+                background: "var(--bg-primary)",
+                color: "var(--text-primary)",
                 minWidth: "150px"
               }}
             >
@@ -971,14 +975,14 @@ function Admin() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Barcode</th>
-                        <th>Name</th>
-                        <th>Sell Price</th>
-                        <th>Base Price</th>
-                        <th>Profit/Unit</th>
-                        <th>Category</th>
-                        <th>Stock</th>
-                        <th>Actions</th>
+                        <th className="col-barcode">Barcode</th>
+                        <th className="col-name">Name</th>
+                        <th className="col-price">Sell Price</th>
+                        <th className="col-base-price">Base Price</th>
+                        <th className="col-profit">Profit/Unit</th>
+                        <th className="col-category">Category</th>
+                        <th className="col-stock">Stock</th>
+                        <th className="col-actions">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -988,11 +992,11 @@ function Admin() {
                         const profitPercent = item.price > 0 ? (profit / parseFloat(item.price) * 100) : 0;
                         return (
                           <tr key={item.id}>
-                            <td>{item.barcode}</td>
-                            <td>{item.name}</td>
-                            <td>MMK {formatCurrency(item.price)}</td>
-                            <td>{basePrice > 0 ? `MMK ${formatCurrency(basePrice)}` : "-"}</td>
-                            <td>
+                            <td className="col-barcode">{item.barcode}</td>
+                            <td className="col-name">{item.name}</td>
+                            <td className="col-price">MMK {formatCurrency(item.price)}</td>
+                            <td className="col-base-price">{basePrice > 0 ? `MMK ${formatCurrency(basePrice)}` : "-"}</td>
+                            <td className="col-profit">
                               {basePrice > 0 ? (
                                 <span style={{ 
                                   color: profit >= 0 ? "#16a34a" : "#dc2626",
@@ -1004,22 +1008,26 @@ function Admin() {
                                 <span style={{ color: "#666" }}>-</span>
                               )}
                             </td>
-                            <td>{item.category || "-"}</td>
-                            <td>{item.stock}</td>
-                            <td>
+                            <td className="col-category">{item.category || "-"}</td>
+                            <td className="col-stock">{item.stock}</td>
+                            <td className="col-actions">
                               <button
-                                className="btn btn-secondary"
+                                className="btn btn-secondary action-btn-edit"
                                 onClick={() => handleEdit(item)}
                                 style={{ padding: "5px 10px", fontSize: "12px" }}
+                                title="Edit"
                               >
-                                Edit
+                                <span className="action-btn-text">Edit</span>
+                                <span className="action-btn-icon">✏️</span>
                               </button>
                               <button
-                                className="btn btn-danger"
+                                className="btn btn-danger action-btn-delete"
                                 onClick={() => handleDelete(item.id)}
                                 style={{ padding: "5px 10px", fontSize: "12px" }}
+                                title="Delete"
                               >
-                                Delete
+                                <span className="action-btn-text">Delete</span>
+                                <span className="action-btn-icon">🗑️</span>
                               </button>
                             </td>
                           </tr>
@@ -1030,7 +1038,7 @@ function Admin() {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div style={{ 
+                    <div className="pagination-controls" style={{ 
                       display: "flex", 
                       justifyContent: "center", 
                       alignItems: "center", 
@@ -1082,11 +1090,13 @@ function Admin() {
           );
         })()}
       </div>
+      )}
 
-      {/* Category Management */}
-      {user?.role === "admin" && (
+      {/* Category Management - Show in inventory view */}
+      {currentView === 'inventory' && user?.role === "admin" && (
         <div className="card">
           <div
+            className="section-header"
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -1132,11 +1142,13 @@ function Admin() {
                     <td>{new Date(cat.created_at).toLocaleDateString()}</td>
                     <td>
                       <button
-                        className="btn btn-danger"
+                        className="btn btn-danger action-btn-delete"
                         onClick={() => handleDeleteCategory(cat.id)}
                         style={{ padding: "5px 10px", fontSize: "12px" }}
+                        title="Delete"
                       >
-                        Delete
+                        <span className="action-btn-text">Delete</span>
+                        <span className="action-btn-icon">🗑️</span>
                       </button>
                     </td>
                   </tr>
@@ -1147,8 +1159,11 @@ function Admin() {
         </div>
       )}
 
+      {/* User Management - Show in inventory view */}
+      {currentView === 'inventory' && user?.role === "admin" && (
       <div className="card">
         <div
+          className="section-header"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -1213,11 +1228,13 @@ function Admin() {
                   <td>
                     {u.id !== user?.id && (
                       <button
-                        className="btn btn-danger"
+                        className="btn btn-danger action-btn-delete"
                         onClick={() => handleDeleteUser(u.id)}
                         style={{ padding: "5px 10px", fontSize: "12px" }}
+                        title="Delete"
                       >
-                        Delete
+                        <span className="action-btn-text">Delete</span>
+                        <span className="action-btn-icon">🗑️</span>
                       </button>
                     )}
                   </td>
@@ -1227,11 +1244,31 @@ function Admin() {
           </table>
         )}
       </div>
+      )}
 
-      {/* Database Access */}
-      {user?.role === "admin" && (
+      {/* Reports View */}
+      {currentView === 'reports' && user?.role === "admin" && (
         <div className="card">
+          <div style={{ marginBottom: "20px" }}>
+            <h2>Sales Reports</h2>
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginTop: "4px" }}>
+              Analytics and performance metrics
+            </p>
+          </div>
+          <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-secondary)" }}>
+            <p>Reports feature coming soon</p>
+            <p style={{ fontSize: "12px", marginTop: "8px" }}>
+              This section will display sales analytics, charts, and detailed reports
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Database Access - Show in inventory view */}
+      {currentView === 'inventory' && user?.role === "admin" && (
+        <div className="card desktop-only">
           <div
+            className="section-header"
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -1320,8 +1357,11 @@ function Admin() {
         </div>
       )}
 
-      <div className="card">
+      {/* Database Backups - Show in inventory view */}
+      {currentView === 'inventory' && user?.role === "admin" && (
+      <div className="card desktop-only">
         <div
+          className="section-header"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -1389,7 +1429,10 @@ function Admin() {
           </table>
         )}
       </div>
+      )}
+      </div>
 
+      {/* Modals - Outside main-content but inside app-layout */}
       {showModal && (
         <div className="modal" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -1401,14 +1444,7 @@ function Admin() {
               <p>Scan barcode with camera, USB scanner, or enter manually</p>
             </div>
             <form onSubmit={handleSubmit}>
-              <div
-                style={{
-                  marginBottom: "20px",
-                  padding: "15px",
-                  background: "#f8f9fa",
-                  borderRadius: "5px",
-                }}
-              >
+              <div className="modal-camera-scanner">
                 <h3 style={{ marginTop: 0, fontSize: "16px" }}>
                   📷 Camera Scanner
                 </h3>
@@ -1438,7 +1474,7 @@ function Admin() {
                   required
                   autoFocus
                 />
-                <small style={{ color: "#666", fontSize: "12px" }}>
+                <small className="form-tip">
                   💡 Tip: Use USB scanner, camera scanner above, or type
                   manually
                 </small>
