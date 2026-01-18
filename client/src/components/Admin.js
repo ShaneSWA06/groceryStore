@@ -14,18 +14,12 @@ const TrashIcon = ({ size = 16 }) => (
     width={size}
     height={size}
     viewBox="0 0 24 24"
-    fill="none"
+    fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
     focusable="false"
   >
-    <path
-      d="M9 3h6m-8 4h10m-9 0 1 14h6l1-14M10 11v7m4-7v7"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <path d="M9 3a1 1 0 00-1 1v1H5a1 1 0 000 2h14a1 1 0 100-2h-3V4a1 1 0 00-1-1H9zm1 5a1 1 0 00-1 1v10a2 2 0 002 2h2a2 2 0 002-2V9a1 1 0 00-1-1h-4zm1 3a1 1 0 012 0v7a1 1 0 11-2 0v-7z" />
   </svg>
 );
 
@@ -1651,8 +1645,33 @@ function Admin() {
                         {new Date(cat.created_at).toLocaleDateString()}
                       </td>
                       <td className="col-actions">
+                        <div className="category-actions-desktop">
+                          <button
+                            type="button"
+                            className="btn btn-secondary action-btn-edit"
+                            onClick={() => handleEditCategory(cat)}
+                            style={{ padding: "5px 10px", fontSize: "12px" }}
+                            title="Edit"
+                          >
+                            <span className="action-btn-text">Edit</span>
+                            <span className="action-btn-icon">✏️</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger action-btn-delete"
+                            onClick={() => handleDeleteCategory(cat.id)}
+                            style={{ padding: "5px 10px", fontSize: "12px" }}
+                            title="Delete"
+                          >
+                            <span className="action-btn-text">Delete</span>
+                            <span className="action-btn-icon">
+                              <TrashIcon />
+                            </span>
+                          </button>
+                        </div>
+
                         <div
-                          className="category-actions-menu"
+                          className="category-actions-mobile"
                           data-category-menu={cat.id}
                         >
                           <button
@@ -2623,7 +2642,10 @@ function Admin() {
 
       {showItemDetailsModal && selectedItem && (
         <div className="modal" onClick={() => setShowItemDetailsModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-content item-details-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <button
                 className="close-btn"
@@ -2634,34 +2656,38 @@ function Admin() {
               <h2>Item Details</h2>
               <p>{selectedItem.name}</p>
             </div>
-            <div style={{ padding: "20px" }}>
-              <div className="form-group" style={{ marginBottom: "12px" }}>
-                <label>Barcode</label>
-                <div style={{ fontWeight: 600 }}>{selectedItem.barcode}</div>
-              </div>
-              <div className="form-group" style={{ marginBottom: "12px" }}>
-                <label>Sell Price</label>
-                <div style={{ fontWeight: 600 }}>
-                  MMK {formatCurrency(selectedItem.price)}
+            <div className="item-details-body">
+              <div className="item-details-grid">
+                <div className="item-details-row">
+                  <div className="item-details-label">Barcode</div>
+                  <div className="item-details-value">
+                    {selectedItem.barcode}
+                  </div>
                 </div>
-              </div>
-              <div className="form-group" style={{ marginBottom: "12px" }}>
-                <label>Base Price</label>
-                <div style={{ fontWeight: 600 }}>
-                  {selectedItem.base_price
-                    ? `MMK ${formatCurrency(selectedItem.base_price)}`
-                    : "-"}
+                <div className="item-details-row">
+                  <div className="item-details-label">Sell Price</div>
+                  <div className="item-details-value">
+                    MMK {formatCurrency(selectedItem.price)}
+                  </div>
                 </div>
-              </div>
-              <div className="form-group" style={{ marginBottom: "12px" }}>
-                <label>Category</label>
-                <div style={{ fontWeight: 600 }}>
-                  {selectedItem.category || "-"}
+                <div className="item-details-row">
+                  <div className="item-details-label">Base Price</div>
+                  <div className="item-details-value">
+                    {selectedItem.base_price
+                      ? `MMK ${formatCurrency(selectedItem.base_price)}`
+                      : "-"}
+                  </div>
                 </div>
-              </div>
-              <div className="form-group" style={{ marginBottom: "0" }}>
-                <label>Stock</label>
-                <div style={{ fontWeight: 600 }}>{selectedItem.stock}</div>
+                <div className="item-details-row">
+                  <div className="item-details-label">Category</div>
+                  <div className="item-details-value">
+                    {selectedItem.category || "-"}
+                  </div>
+                </div>
+                <div className="item-details-row">
+                  <div className="item-details-label">Stock</div>
+                  <div className="item-details-value">{selectedItem.stock}</div>
+                </div>
               </div>
             </div>
           </div>
