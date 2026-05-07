@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
-function BarcodeScanner({ onScan, onError }) {
+function BarcodeScanner({ onScan, onError, title = "Camera Scanner" }) {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraId, setCameraId] = useState(null);
   const [scanStatus, setScanStatus] = useState("");
   const [useNativeAPI, setUseNativeAPI] = useState(false);
+  const [showTips, setShowTips] = useState(false);
   const scannerRef = useRef(null);
   const html5QrCodeRef = useRef(null);
   const videoRef = useRef(null);
@@ -94,10 +95,10 @@ function BarcodeScanner({ onScan, onError }) {
       if (barcodes && barcodes.length > 0) {
         const barcode = barcodes[0];
         const barcodeValue = barcode.rawValue;
-        
+
         // Reset no-barcode counter since we detected something
         noBarcodeCountRef.current = 0;
-        
+
         // Only scan if it's a different barcode than the last one scanned
         // This prevents scanning the same barcode multiple times while it's still in view
         if (lastScannedBarcodeRef.current === barcodeValue) {
@@ -115,17 +116,17 @@ function BarcodeScanner({ onScan, onError }) {
         );
         onScan?.(barcodeValue);
         setScanStatus(`✓ Scanned: ${barcodeValue}`);
-        
+
         // Auto-stop camera after successful scan
         setTimeout(() => {
           stopScanning();
         }, 500); // Small delay to show the success message
-        
+
         return true;
       } else {
         // No barcode detected in this frame
         noBarcodeCountRef.current += 1;
-        
+
         // After 10 consecutive frames with no barcode, reset the last scanned barcode
         // This allows the same barcode to be scanned again after it's removed from view
         if (noBarcodeCountRef.current >= 10) {
@@ -327,10 +328,10 @@ function BarcodeScanner({ onScan, onError }) {
           config,
           (decodedText, decodedResult) => {
             console.log("✅ Library detected:", decodedText);
-            
+
             // Reset no-barcode counter since we detected something
             noBarcodeCount = 0;
-            
+
             // Only scan if it's a different barcode than the last one scanned
             // This prevents scanning the same barcode multiple times while it's still in view
             if (lastScannedCode === decodedText) {
@@ -342,7 +343,7 @@ function BarcodeScanner({ onScan, onError }) {
             console.log("📦 Processing:", decodedText);
             setScanStatus(`✓ Scanned: ${decodedText}`);
             onScan?.(decodedText);
-            
+
             // Auto-stop camera after successful scan
             setTimeout(async () => {
               await stopScanning();
@@ -351,13 +352,13 @@ function BarcodeScanner({ onScan, onError }) {
           (errorMessage) => {
             // When no barcode is detected, increment counter
             noBarcodeCount += 1;
-            
+
             // After 10 consecutive "no barcode" detections, reset the last scanned barcode
             // This allows the same barcode to be scanned again after it's removed from view
             if (noBarcodeCount >= 10) {
               lastScannedCode = "";
             }
-            
+
             // Log errors for debugging but don't spam
             if (!errorMessage.includes("NotFoundException")) {
               // Only log non-expected errors occasionally
@@ -510,7 +511,7 @@ function BarcodeScanner({ onScan, onError }) {
         if (barcodes && barcodes.length > 0) {
           const barcode = barcodes[0];
           const barcodeValue = barcode.rawValue;
-          
+
           // Only scan if it's a different barcode than the last one scanned
           if (lastScannedBarcodeRef.current === barcodeValue) {
             setScanStatus("Already scanned");
@@ -546,7 +547,7 @@ function BarcodeScanner({ onScan, onError }) {
         const html5QrCode = new Html5Qrcode("html5qr-scanner");
         try {
           const decodedText = await html5QrCode.scanFile(file, false);
-          
+
           // Only scan if it's a different barcode than the last one scanned
           if (lastScannedBarcodeRef.current === decodedText) {
             setScanStatus("Already scanned");
@@ -595,18 +596,35 @@ function BarcodeScanner({ onScan, onError }) {
   };
 
   return (
-    <div style={{ marginBottom: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          marginBottom: "10px",
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
+    <div className="scanner-widget">
+      <div className="scanner-widget-header">
+        <div>
+          <div className="scanner-widget-title">{title}</div>
+          <div className="scanner-widget-subtitle">
+            {useNativeAPI
+              ? "High accuracy mode supported on this device"
+              : "Limited mode — USB scanner recommended for best results"}
+          </div>
+        </div>
+        <div
+          className={
+            isScanning
+              ? "scanner-widget-pill scanner-widget-pill-live"
+              : "scanner-widget-pill"
+          }
+        >
+          {isScanning ? "LIVE" : "READY"}
+        </div>
+      </div>
+
+      <div className="scanner-widget-actions">
         <button
-          className={isScanning ? "btn btn-danger" : "btn btn-success"}
+          type="button"
+          className={
+            isScanning
+              ? "scanner-widget-btn danger"
+              : "scanner-widget-btn primary"
+          }
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -617,123 +635,80 @@ function BarcodeScanner({ onScan, onError }) {
             }
           }}
         >
-          {isScanning ? "⏹️ Stop Camera" : "▶️ Start Camera Scanner"}
+          {isScanning ? "Stop camera" : "Start camera"}
         </button>
-        <label className="btn btn-secondary">
-          📷 Scan from Photo
+
+        <label className="scanner-widget-btn secondary">
+          Scan photo
           <input
             type="file"
             accept="image/*"
             capture="environment"
             onChange={handleFileUpload}
-            style={{ display: "none" }}
           />
         </label>
-        {isScanning && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-            <span style={{ color: "#27ae60", fontWeight: "bold" }}>
-              ● Scanning...
-            </span>
-            {scanStatus && (
-              <span style={{ fontSize: "12px", color: "#666" }}>
-                {scanStatus}
-              </span>
-            )}
+
+        <button
+          type="button"
+          className="scanner-widget-btn ghost"
+          onClick={() => setShowTips((v) => !v)}
+        >
+          {showTips ? "Hide tips" : "Tips"}
+        </button>
+      </div>
+
+      <div className="scanner-widget-stage">
+        <div
+          ref={scannerRef}
+          className={
+            isScanning
+              ? "scanner-widget-video-wrap"
+              : "scanner-widget-video-wrap hidden"
+          }
+        >
+          <div className="scanner-widget-video">
+            <div id="html5qr-scanner" className="scanner-widget-target" />
+            <div className="scanner-widget-overlay">
+              <div className="scanner-widget-corners" />
+              <div className="scanner-widget-scanline" />
+            </div>
+          </div>
+        </div>
+
+        {!isScanning && (
+          <div className="scanner-widget-empty">
+            <div className="scanner-widget-empty-icon">📷</div>
+            <div className="scanner-widget-empty-title">Ready to scan</div>
+            <div className="scanner-widget-empty-subtitle">
+              Start camera, point at barcode, and hold steady.
+            </div>
           </div>
         )}
       </div>
-      <div
-        ref={scannerRef}
-        style={{
-          width: "100%",
-          maxWidth: "500px",
-          margin: "0 auto",
-          display: isScanning ? "block" : "none",
-        }}
-      >
-        <div
-          id="html5qr-scanner"
-          style={{
-            width: "100%",
-            minHeight: "300px",
-            maxHeight: "70vh", // Better for mobile
-            position: "relative",
-            background: "#000",
-            borderRadius: "5px",
-            overflow: "hidden",
-          }}
-        ></div>
-      </div>
-      {!isScanning && (
-        <div className="scanner-inactive">
-          <div className="scanner-inactive-icon">📷</div>
-          <h3 className="scanner-inactive-title">Camera Scanner Inactive</h3>
-          <p className="scanner-inactive-subtitle">
-            Click "Start Camera Scanner" to begin scanning items
-          </p>
-          <div className="scanner-status-info">
-            {useNativeAPI ? (
-              <div className="scanner-status-badge success">
-                <span className="badge-icon">✅</span>
-                <span className="badge-text">Native barcode detection available</span>
-              </div>
-            ) : (
-              <>
-                <div className="scanner-status-badge warning">
-                  <span className="badge-icon">⚠️</span>
-                  <span className="badge-text">Limited barcode support detected</span>
-                </div>
-                <div className="scanner-instructions">
-                  <strong>Enable Better Scanning:</strong>
-                  <ol>
-                    <li>
-                      Go to <code>chrome://flags</code>
-                    </li>
-                    <li>Enable "Experimental Web Platform features"</li>
-                    <li>Restart Chrome and refresh this page</li>
-                  </ol>
-                </div>
-              </>
-            )}
-          </div>
+
+      {(scanStatus || isScanning) && (
+        <div className="scanner-widget-status">
+          <span
+            className={
+              isScanning
+                ? "scanner-widget-dot scanner-widget-dot-live"
+                : "scanner-widget-dot"
+            }
+          />
+          <span className="scanner-widget-status-text">
+            {scanStatus || (isScanning ? "Scanning…" : "Ready")}
+          </span>
         </div>
       )}
-      {isScanning && (
-        <div className="scanner-status-active">
-          <strong>Tips for better scanning:</strong>
-          <ul>
-            <li>
-              <strong>Good lighting is critical</strong> - Use bright, even
-              lighting
-            </li>
-            <li>
-              <strong>Hold barcode flat</strong> - No wrinkles or curves
-            </li>
-            <li>
-              <strong>Fill the frame</strong> - Get close so barcode fills most
-              of the view
-            </li>
-            <li>
-              <strong>Steady hands</strong> - Hold still for 2-3 seconds
-            </li>
-            <li>
-              <strong>Try "Scan from Photo"</strong> - Sometimes taking a photo
-              works better than live scanning
-            </li>
-            <li>
-              <strong>Supported formats:</strong> EAN-13, UPC-A, Code 128, Code
-              39, QR Code
-            </li>
+
+      {showTips && (
+        <div className="scanner-widget-tips">
+          <div className="scanner-widget-tips-title">Fast scanning tips</div>
+          <ul className="scanner-widget-tips-list">
+            <li>Use bright lighting</li>
+            <li>Fill the frame with the barcode</li>
+            <li>Hold steady for 1–2 seconds</li>
           </ul>
-          {!useNativeAPI && (
-            <div className="scanner-limited-detection">
-              <strong>⚠️ Limited Detection:</strong>
-              <p>
-                Enable native detection in Chrome for much better results. See
-                instructions above.
-              </p>
-            </div>
-          )}
         </div>
       )}
     </div>
