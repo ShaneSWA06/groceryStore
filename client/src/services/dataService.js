@@ -25,7 +25,7 @@ export async function login(username, password) {
     .maybeSingle();
 
   if (error) throw apiError(`Database error: ${error.message}`);
-  if (!data) throw apiError('Invalid username or password — check credentials or contact admin');
+  if (!data) throw apiError('Invalid username or password');
 
   const token = `local_${data.id}_${Date.now()}`;
   return {
@@ -37,14 +37,14 @@ export async function login(username, password) {
 // Items
 export async function getItems() {
   const { data, error } = await supabase.from('items').select('*').order('name');
-  if (error) { console.error('getItems error:', error); throw apiError(error.message); }
-  console.log('getItems returned', data?.length, 'rows');
+  if (error) throw apiError(error.message);
   return data;
 }
 
 export async function getItemById(id) {
-  const { data, error } = await supabase.from('items').select('*').eq('id', id).single();
-  if (error || !data) throw apiError('Item not found');
+  const { data, error } = await supabase.from('items').select('*').eq('id', id).maybeSingle();
+  if (error) throw apiError(error.message);
+  if (!data) throw apiError('Item not found');
   return data;
 }
 
@@ -53,8 +53,9 @@ export async function getItemByBarcode(barcode) {
     .from('items')
     .select('*')
     .eq('barcode', String(barcode).trim())
-    .single();
-  if (error || !data) throw apiError('Item not found. Please add it in Admin section first.');
+    .maybeSingle();
+  if (error) throw apiError(error.message);
+  if (!data) throw apiError('Item not found. Please add it in Admin section first.');
   return data;
 }
 
@@ -137,13 +138,23 @@ export async function createCategory(categoryData) {
   return { ...data, message: 'Category created' };
 }
 
+export async function updateCategory(id, categoryData) {
+  const { error } = await supabase
+    .from('categories')
+    .update({ name: categoryData.name.trim(), description: categoryData.description || null })
+    .eq('id', id);
+  if (error) throw apiError(error.message);
+  return { message: 'Category updated' };
+}
+
 export async function deleteCategory(id) {
   const { data: cat, error: catErr } = await supabase
     .from('categories')
     .select('name')
     .eq('id', id)
-    .single();
-  if (catErr || !cat) throw apiError('Category not found');
+    .maybeSingle();
+  if (catErr) throw apiError(catErr.message);
+  if (!cat) throw apiError('Category not found');
 
   const { data: items } = await supabase
     .from('items')
@@ -204,7 +215,7 @@ export async function getTransactions() {
   if (error) throw apiError(error.message);
   return transactions.map(t => ({
     ...t,
-    item_count: t.transaction_items?.[0]?.count ?? 0,
+    item_count: parseInt(t.transaction_items?.[0]?.count ?? 0),
   }));
 }
 
@@ -213,8 +224,9 @@ export async function getTransactionById(transactionId) {
     .from('transactions')
     .select('*')
     .eq('transaction_id', transactionId)
-    .single();
-  if (error || !tx) throw apiError('Transaction not found');
+    .maybeSingle();
+  if (error) throw apiError(error.message);
+  if (!tx) throw apiError('Transaction not found');
 
   const { data: items } = await supabase
     .from('transaction_items')
@@ -249,11 +261,10 @@ export async function checkout(items) {
   const { error: itemsError } = await supabase.from('transaction_items').insert(txItems);
   if (itemsError) throw apiError(itemsError.message);
 
-  // Decrement stock for each item
   await Promise.all(
-    items.map(async item => {
-      await supabase.rpc('decrement_stock', { item_id: item.itemId, qty: item.quantity });
-    })
+    items.map(item =>
+      supabase.rpc('decrement_stock', { item_id: item.itemId, qty: item.quantity })
+    )
   );
 
   return { transactionId, totalAmount, message: 'Checkout successful' };
@@ -267,14 +278,10 @@ export async function getStatistics() {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const [itemsRes, todayTxsRes, recentTxsRes] = await Promise.all([
-    supabase.from('items').select('id, stock'),
+    supabase.from('items').select('*'),
     supabase.from('transactions').select('transaction_id, total_amount').gte('created_at', today.toISOString()),
     supabase.from('transactions').select('transaction_id').gte('created_at', thirtyDaysAgo.toISOString()),
   ]);
-
-  if (itemsRes.error) console.error('items fetch error:', itemsRes.error);
-  if (todayTxsRes.error) console.error('todayTxs fetch error:', todayTxsRes.error);
-  if (recentTxsRes.error) console.error('recentTxs fetch error:', recentTxsRes.error);
 
   const allItems = itemsRes.data || [];
   const todayTransactions = todayTxsRes.data || [];
@@ -292,6 +299,8 @@ export async function getStatistics() {
       .in('transaction_id', [...txIdSet]);
 
     const itemIds = [...new Set((txItems || []).map(ti => ti.item_id))];
+    if (itemIds.length === 0) return 0;
+
     const { data: itemPrices } = await supabase
       .from('items')
       .select('id, base_price')

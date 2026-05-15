@@ -37,6 +37,7 @@ const api = {
 
   put(url, data) {
     if (url.startsWith('/items/')) return wrap(ds.updateItem(parseTrailingId(url, '/items/'), data));
+    if (url.startsWith('/categories/')) return wrap(ds.updateCategory(parseTrailingId(url, '/categories/'), data));
     return Promise.reject(new Error(`Unknown PUT: ${url}`));
   },
 
