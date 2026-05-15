@@ -150,7 +150,7 @@ function Admin() {
     if (currentView === "reports" && user?.role === "admin") {
       fetchTransactions();
     }
-  }, [currentView]);
+  }, [currentView, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (openItemMenuId === null) return;
