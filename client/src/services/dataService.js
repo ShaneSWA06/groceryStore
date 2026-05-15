@@ -224,11 +224,9 @@ export async function checkout(items) {
   const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const now = new Date().toISOString();
 
-  const { data: tx, error: txError } = await supabase
+  const { error: txError } = await supabase
     .from('transactions')
-    .insert({ transaction_id: transactionId, total_amount: totalAmount, created_at: now })
-    .select()
-    .single();
+    .insert({ transaction_id: transactionId, total_amount: totalAmount, created_at: now });
   if (txError) throw apiError(txError.message);
 
   const txItems = items.map(item => ({
