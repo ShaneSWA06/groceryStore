@@ -1,7 +1,7 @@
 import * as ds from '../services/dataService';
 
-function ok(data) {
-  return Promise.resolve({ data });
+function wrap(promise) {
+  return promise.then(data => ({ data }));
 }
 
 function parseTrailingId(url, prefix) {
@@ -10,40 +10,40 @@ function parseTrailingId(url, prefix) {
 
 const api = {
   get(url) {
-    if (url === '/items') return ok(ds.getItems());
-    if (url.startsWith('/items/barcode/')) return ok(ds.getItemByBarcode(parseTrailingId(url, '/items/barcode/')));
-    if (url.startsWith('/items/')) return ok(ds.getItemById(parseTrailingId(url, '/items/')));
-    if (url === '/categories') return ok(ds.getCategories());
-    if (url === '/users') return ok(ds.getUsers());
-    if (url === '/statistics') return ok(ds.getStatistics());
-    if (url.startsWith('/sales/scan/')) return ok(ds.getItemByBarcode(parseTrailingId(url, '/sales/scan/')));
-    if (url === '/transactions') return ok(ds.getTransactions());
-    if (url.startsWith('/transactions/')) return ok(ds.getTransactionById(parseTrailingId(url, '/transactions/')));
-    if (url === '/backup/list') return ok({ backups: [] });
+    if (url === '/items') return wrap(ds.getItems());
+    if (url.startsWith('/items/barcode/')) return wrap(ds.getItemByBarcode(parseTrailingId(url, '/items/barcode/')));
+    if (url.startsWith('/items/')) return wrap(ds.getItemById(parseTrailingId(url, '/items/')));
+    if (url === '/categories') return wrap(ds.getCategories());
+    if (url === '/users') return wrap(ds.getUsers());
+    if (url === '/statistics') return wrap(ds.getStatistics());
+    if (url.startsWith('/sales/scan/')) return wrap(ds.getItemByBarcode(parseTrailingId(url, '/sales/scan/')));
+    if (url === '/transactions') return wrap(ds.getTransactions());
+    if (url.startsWith('/transactions/')) return wrap(ds.getTransactionById(parseTrailingId(url, '/transactions/')));
+    if (url === '/backup/list') return Promise.resolve({ data: { backups: [] } });
     return Promise.reject(new Error(`Unknown GET: ${url}`));
   },
 
   post(url, data) {
-    if (url === '/auth/login') return ok(ds.login(data.username, data.password));
-    if (url === '/items') return ok(ds.createItem(data));
-    if (url === '/categories') return ok(ds.createCategory(data));
-    if (url === '/users') return ok(ds.createUser(data));
-    if (url === '/sales/checkout') return ok(ds.checkout(data.items));
-    if (url === '/backup/create') { ds.exportDataAsFile(); return ok({ success: true, backup: { filename: `backup_${new Date().toISOString().split('T')[0]}.json` } }); }
-    if (url === '/backup/cleanup') return ok({ success: true, message: 'Cleanup complete' });
-    if (url === '/database/reset-transactions') return ok(ds.resetTransactions());
+    if (url === '/auth/login') return wrap(ds.login(data.username, data.password));
+    if (url === '/items') return wrap(ds.createItem(data));
+    if (url === '/categories') return wrap(ds.createCategory(data));
+    if (url === '/users') return wrap(ds.createUser(data));
+    if (url === '/sales/checkout') return wrap(ds.checkout(data.items));
+    if (url === '/backup/create') return wrap(ds.exportDataAsFile());
+    if (url === '/backup/cleanup') return Promise.resolve({ data: { success: true, message: 'Cleanup complete' } });
+    if (url === '/database/reset-transactions') return wrap(ds.resetTransactions());
     return Promise.reject(new Error(`Unknown POST: ${url}`));
   },
 
   put(url, data) {
-    if (url.startsWith('/items/')) return ok(ds.updateItem(parseTrailingId(url, '/items/'), data));
+    if (url.startsWith('/items/')) return wrap(ds.updateItem(parseTrailingId(url, '/items/'), data));
     return Promise.reject(new Error(`Unknown PUT: ${url}`));
   },
 
   delete(url) {
-    if (url.startsWith('/items/')) return ok(ds.deleteItem(parseTrailingId(url, '/items/')));
-    if (url.startsWith('/categories/')) return ok(ds.deleteCategory(parseTrailingId(url, '/categories/')));
-    if (url.startsWith('/users/')) return ok(ds.deleteUser(parseTrailingId(url, '/users/')));
+    if (url.startsWith('/items/')) return wrap(ds.deleteItem(parseTrailingId(url, '/items/')));
+    if (url.startsWith('/categories/')) return wrap(ds.deleteCategory(parseTrailingId(url, '/categories/')));
+    if (url.startsWith('/users/')) return wrap(ds.deleteUser(parseTrailingId(url, '/users/')));
     return Promise.reject(new Error(`Unknown DELETE: ${url}`));
   },
 };

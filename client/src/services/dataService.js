@@ -1,43 +1,9 @@
-const KEYS = {
-  USERS: 'gs_users',
-  ITEMS: 'gs_items',
-  CATEGORIES: 'gs_categories',
-  TRANSACTIONS: 'gs_transactions',
-  TRANSACTION_ITEMS: 'gs_transaction_items',
-};
+import { createClient } from '@supabase/supabase-js';
 
-const DEFAULT_ADMIN = {
-  id: 1,
-  username: 'admin',
-  password: 'admin123',
-  role: 'admin',
-  full_name: 'Administrator',
-  created_at: new Date().toISOString(),
-};
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-function getList(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function setList(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-function nextId(items) {
-  if (!items.length) return 1;
-  return Math.max(...items.map(i => i.id)) + 1;
-}
-
-function initializeIfEmpty() {
-  const users = getList(KEYS.USERS);
-  if (users.length === 0) {
-    setList(KEYS.USERS, [DEFAULT_ADMIN]);
-  }
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 function apiError(message) {
   const err = new Error(message);
@@ -46,280 +12,336 @@ function apiError(message) {
 }
 
 // Auth
-export function login(username, password) {
-  initializeIfEmpty();
-  const users = getList(KEYS.USERS);
-  const user = users.find(u => u.username === username && u.password === password);
-  if (!user) throw apiError('Invalid username or password');
-  const token = `local_${user.id}_${Date.now()}`;
-  const userData = { id: user.id, username: user.username, role: user.role, fullName: user.full_name };
-  return { token, user: userData };
+export async function login(username, password) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('username', username)
+    .eq('password', password)
+    .single();
+
+  if (error || !data) throw apiError('Invalid username or password');
+
+  const token = `local_${data.id}_${Date.now()}`;
+  return {
+    token,
+    user: { id: data.id, username: data.username, role: data.role, fullName: data.full_name },
+  };
 }
 
 // Items
-export function getItems() {
-  return getList(KEYS.ITEMS);
+export async function getItems() {
+  const { data, error } = await supabase.from('items').select('*').order('name');
+  if (error) throw apiError(error.message);
+  return data;
 }
 
-export function getItemById(id) {
-  const items = getList(KEYS.ITEMS);
-  const item = items.find(i => i.id === parseInt(id));
-  if (!item) throw apiError('Item not found');
-  return item;
+export async function getItemById(id) {
+  const { data, error } = await supabase.from('items').select('*').eq('id', id).single();
+  if (error || !data) throw apiError('Item not found');
+  return data;
 }
 
-export function getItemByBarcode(barcode) {
-  const items = getList(KEYS.ITEMS);
-  const item = items.find(i => String(i.barcode).trim() === String(barcode).trim());
-  if (!item) throw apiError('Item not found. Please add it in Admin section first.');
-  return item;
+export async function getItemByBarcode(barcode) {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('barcode', String(barcode).trim())
+    .single();
+  if (error || !data) throw apiError('Item not found. Please add it in Admin section first.');
+  return data;
 }
 
-export function createItem(data) {
-  const items = getList(KEYS.ITEMS);
-  if (items.find(i => String(i.barcode) === String(data.barcode))) {
-    throw apiError('Barcode already exists');
-  }
-  const newItem = {
-    id: nextId(items),
-    barcode: data.barcode,
-    name: data.name,
-    price: parseFloat(data.price),
-    base_price: data.base_price ? parseFloat(data.base_price) : null,
-    category: data.category || null,
-    stock: parseInt(data.stock) || 0,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  setList(KEYS.ITEMS, [...items, newItem]);
-  return newItem;
+export async function createItem(itemData) {
+  const { data: existing } = await supabase
+    .from('items')
+    .select('id')
+    .eq('barcode', String(itemData.barcode))
+    .maybeSingle();
+  if (existing) throw apiError('Barcode already exists');
+
+  const { data, error } = await supabase
+    .from('items')
+    .insert({
+      barcode: itemData.barcode,
+      name: itemData.name,
+      price: parseFloat(itemData.price),
+      base_price: itemData.base_price ? parseFloat(itemData.base_price) : null,
+      category: itemData.category || null,
+      stock: parseInt(itemData.stock) || 0,
+    })
+    .select()
+    .single();
+  if (error) throw apiError(error.message);
+  return data;
 }
 
-export function updateItem(id, data) {
-  const items = getList(KEYS.ITEMS);
-  const idx = items.findIndex(i => i.id === parseInt(id));
-  if (idx === -1) throw apiError('Item not found');
-  if (items.find(i => String(i.barcode) === String(data.barcode) && i.id !== parseInt(id))) {
-    throw apiError('Barcode already exists');
-  }
-  items[idx] = {
-    ...items[idx],
-    barcode: data.barcode,
-    name: data.name,
-    price: parseFloat(data.price),
-    base_price: data.base_price ? parseFloat(data.base_price) : null,
-    category: data.category || null,
-    stock: parseInt(data.stock) || 0,
-    updated_at: new Date().toISOString(),
-  };
-  setList(KEYS.ITEMS, items);
+export async function updateItem(id, itemData) {
+  const { data: existing } = await supabase
+    .from('items')
+    .select('id')
+    .eq('barcode', String(itemData.barcode))
+    .neq('id', id)
+    .maybeSingle();
+  if (existing) throw apiError('Barcode already exists');
+
+  const { error } = await supabase
+    .from('items')
+    .update({
+      barcode: itemData.barcode,
+      name: itemData.name,
+      price: parseFloat(itemData.price),
+      base_price: itemData.base_price ? parseFloat(itemData.base_price) : null,
+      category: itemData.category || null,
+      stock: parseInt(itemData.stock) || 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+  if (error) throw apiError(error.message);
   return { message: 'Item updated', changes: 1 };
 }
 
-export function deleteItem(id) {
-  const items = getList(KEYS.ITEMS);
-  setList(KEYS.ITEMS, items.filter(i => i.id !== parseInt(id)));
+export async function deleteItem(id) {
+  const { error } = await supabase.from('items').delete().eq('id', id);
+  if (error) throw apiError(error.message);
   return { message: 'Item deleted' };
 }
 
 // Categories
-export function getCategories() {
-  return getList(KEYS.CATEGORIES);
+export async function getCategories() {
+  const { data, error } = await supabase.from('categories').select('*').order('name');
+  if (error) throw apiError(error.message);
+  return data;
 }
 
-export function createCategory(data) {
-  const cats = getList(KEYS.CATEGORIES);
-  if (cats.find(c => c.name.toLowerCase() === data.name.trim().toLowerCase())) {
-    throw apiError('Category already exists');
-  }
-  const newCat = {
-    id: nextId(cats),
-    name: data.name.trim(),
-    description: data.description || null,
-    created_at: new Date().toISOString(),
-  };
-  setList(KEYS.CATEGORIES, [...cats, newCat]);
-  return { ...newCat, message: 'Category created' };
+export async function createCategory(categoryData) {
+  const { data: existing } = await supabase
+    .from('categories')
+    .select('id')
+    .ilike('name', categoryData.name.trim())
+    .maybeSingle();
+  if (existing) throw apiError('Category already exists');
+
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({ name: categoryData.name.trim(), description: categoryData.description || null })
+    .select()
+    .single();
+  if (error) throw apiError(error.message);
+  return { ...data, message: 'Category created' };
 }
 
-export function deleteCategory(id) {
-  const cats = getList(KEYS.CATEGORIES);
-  const cat = cats.find(c => c.id === parseInt(id));
-  if (!cat) throw apiError('Category not found');
-  const items = getList(KEYS.ITEMS);
-  if (items.find(i => i.category === cat.name)) {
-    throw apiError('Cannot delete category that has items assigned to it');
-  }
-  setList(KEYS.CATEGORIES, cats.filter(c => c.id !== parseInt(id)));
+export async function deleteCategory(id) {
+  const { data: cat, error: catErr } = await supabase
+    .from('categories')
+    .select('name')
+    .eq('id', id)
+    .single();
+  if (catErr || !cat) throw apiError('Category not found');
+
+  const { data: items } = await supabase
+    .from('items')
+    .select('id')
+    .eq('category', cat.name)
+    .limit(1);
+  if (items && items.length > 0) throw apiError('Cannot delete category that has items assigned to it');
+
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if (error) throw apiError(error.message);
   return { message: 'Category deleted' };
 }
 
-// Transactions
-export function getTransactions() {
-  const transactions = getList(KEYS.TRANSACTIONS);
-  const txItems = getList(KEYS.TRANSACTION_ITEMS);
-  return transactions.map(t => ({
-    ...t,
-    item_count: txItems.filter(ti => ti.transaction_id === t.transaction_id).length,
-  })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-}
-
-export function getTransactionById(transactionId) {
-  const transactions = getList(KEYS.TRANSACTIONS);
-  const txItems = getList(KEYS.TRANSACTION_ITEMS);
-  const tx = transactions.find(t => t.transaction_id === transactionId);
-  if (!tx) throw apiError('Transaction not found');
-  return { ...tx, items: txItems.filter(ti => ti.transaction_id === transactionId) };
-}
-
 // Users
-export function getUsers() {
-  initializeIfEmpty();
-  return getList(KEYS.USERS).map(u => ({
-    id: u.id,
-    username: u.username,
-    role: u.role,
-    full_name: u.full_name,
-    created_at: u.created_at,
-  }));
+export async function getUsers() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, role, full_name, created_at')
+    .order('id');
+  if (error) throw apiError(error.message);
+  return data;
 }
 
-export function createUser(data) {
-  initializeIfEmpty();
-  const users = getList(KEYS.USERS);
-  if (users.find(u => u.username === data.username)) {
-    throw apiError('Username already exists');
-  }
-  const newUser = {
-    id: nextId(users),
-    username: data.username,
-    password: data.password,
-    role: data.role || 'cashier',
-    full_name: data.fullName || null,
-    created_at: new Date().toISOString(),
-  };
-  setList(KEYS.USERS, [...users, newUser]);
-  return { id: newUser.id, username: newUser.username, role: newUser.role, fullName: newUser.full_name, message: 'User created' };
+export async function createUser(userData) {
+  const { data: existing } = await supabase
+    .from('users')
+    .select('id')
+    .eq('username', userData.username)
+    .maybeSingle();
+  if (existing) throw apiError('Username already exists');
+
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      username: userData.username,
+      password: userData.password,
+      role: userData.role || 'cashier',
+      full_name: userData.fullName || null,
+    })
+    .select()
+    .single();
+  if (error) throw apiError(error.message);
+  return { id: data.id, username: data.username, role: data.role, fullName: data.full_name, message: 'User created' };
 }
 
-export function deleteUser(id) {
-  const users = getList(KEYS.USERS);
-  setList(KEYS.USERS, users.filter(u => u.id !== parseInt(id)));
+export async function deleteUser(id) {
+  const { error } = await supabase.from('users').delete().eq('id', id);
+  if (error) throw apiError(error.message);
   return { message: 'User deleted' };
 }
 
-// Sales / Checkout
-export function checkout(items) {
-  const storedItems = getList(KEYS.ITEMS);
-  const transactions = getList(KEYS.TRANSACTIONS);
-  const txItems = getList(KEYS.TRANSACTION_ITEMS);
+// Transactions
+export async function getTransactions() {
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('*, transaction_items(count)')
+    .order('created_at', { ascending: false });
+  if (error) throw apiError(error.message);
+  return transactions.map(t => ({
+    ...t,
+    item_count: t.transaction_items?.[0]?.count ?? 0,
+  }));
+}
 
+export async function getTransactionById(transactionId) {
+  const { data: tx, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('transaction_id', transactionId)
+    .single();
+  if (error || !tx) throw apiError('Transaction not found');
+
+  const { data: items } = await supabase
+    .from('transaction_items')
+    .select('*')
+    .eq('transaction_id', transactionId);
+
+  return { ...tx, items: items || [] };
+}
+
+// Sales / Checkout
+export async function checkout(items) {
   const transactionId = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
   const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const now = new Date().toISOString();
 
-  const transaction = {
-    id: nextId(transactions),
+  const { data: tx, error: txError } = await supabase
+    .from('transactions')
+    .insert({ transaction_id: transactionId, total_amount: totalAmount, created_at: now })
+    .select()
+    .single();
+  if (txError) throw apiError(txError.message);
+
+  const txItems = items.map(item => ({
     transaction_id: transactionId,
-    total_amount: totalAmount,
+    item_id: item.itemId,
+    barcode: item.barcode,
+    item_name: item.name,
+    quantity: item.quantity,
+    unit_price: item.unitPrice,
+    total_price: item.totalPrice,
     created_at: now,
-  };
+  }));
 
-  let txItemIdBase = txItems.length > 0 ? Math.max(...txItems.map(t => t.id)) + 1 : 1;
-  const newTxItems = items.map((item, idx) => {
-    const itemIdx = storedItems.findIndex(i => i.id === item.itemId);
-    if (itemIdx >= 0) {
-      storedItems[itemIdx] = {
-        ...storedItems[itemIdx],
-        stock: Math.max(0, storedItems[itemIdx].stock - item.quantity),
-      };
-    }
-    return {
-      id: txItemIdBase + idx,
-      transaction_id: transactionId,
-      item_id: item.itemId,
-      barcode: item.barcode,
-      item_name: item.name,
-      quantity: item.quantity,
-      unit_price: item.unitPrice,
-      total_price: item.totalPrice,
-      created_at: now,
-    };
-  });
+  const { error: itemsError } = await supabase.from('transaction_items').insert(txItems);
+  if (itemsError) throw apiError(itemsError.message);
 
-  setList(KEYS.ITEMS, storedItems);
-  setList(KEYS.TRANSACTIONS, [...transactions, transaction]);
-  setList(KEYS.TRANSACTION_ITEMS, [...txItems, ...newTxItems]);
+  // Decrement stock for each item
+  await Promise.all(
+    items.map(async item => {
+      await supabase.rpc('decrement_stock', { item_id: item.itemId, qty: item.quantity });
+    })
+  );
 
   return { transactionId, totalAmount, message: 'Checkout successful' };
 }
 
 // Statistics
-export function getStatistics() {
-  const items = getList(KEYS.ITEMS);
-  const transactions = getList(KEYS.TRANSACTIONS);
-  const txItems = getList(KEYS.TRANSACTION_ITEMS);
-
-  const today = new Date().toDateString();
+export async function getStatistics() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const todayTxs = transactions.filter(t => new Date(t.created_at).toDateString() === today);
-  const recentTxIds = new Set(
-    transactions.filter(t => new Date(t.created_at) >= thirtyDaysAgo).map(t => t.transaction_id)
-  );
-  const todayTxIds = new Set(todayTxs.map(t => t.transaction_id));
+  const [{ data: items }, { data: todayTxs }, { data: recentTxs }] = await Promise.all([
+    supabase.from('items').select('id, stock'),
+    supabase.from('transactions').select('transaction_id, total_amount').gte('created_at', today.toISOString()),
+    supabase.from('transactions').select('transaction_id').gte('created_at', thirtyDaysAgo.toISOString()),
+  ]);
 
-  const todayRevenue = todayTxs.reduce((sum, t) => sum + t.total_amount, 0);
+  const allItems = items || [];
+  const todayTransactions = todayTxs || [];
+  const recentTransactions = recentTxs || [];
 
-  function calcProfit(txIdSet) {
-    return txItems
-      .filter(ti => txIdSet.has(ti.transaction_id))
-      .reduce((sum, ti) => {
-        const item = items.find(i => i.id === ti.item_id);
-        if (item && item.base_price) {
-          return sum + (ti.unit_price - item.base_price) * ti.quantity;
-        }
-        return sum;
-      }, 0);
+  const todayRevenue = todayTransactions.reduce((sum, t) => sum + t.total_amount, 0);
+  const todayTxIds = new Set(todayTransactions.map(t => t.transaction_id));
+  const recentTxIds = new Set(recentTransactions.map(t => t.transaction_id));
+
+  async function calcProfit(txIdSet) {
+    if (txIdSet.size === 0) return 0;
+    const { data: txItems } = await supabase
+      .from('transaction_items')
+      .select('transaction_id, item_id, unit_price, quantity')
+      .in('transaction_id', [...txIdSet]);
+
+    const itemIds = [...new Set((txItems || []).map(ti => ti.item_id))];
+    const { data: itemPrices } = await supabase
+      .from('items')
+      .select('id, base_price')
+      .in('id', itemIds);
+
+    const priceMap = {};
+    (itemPrices || []).forEach(i => { priceMap[i.id] = i.base_price; });
+
+    return (txItems || []).reduce((sum, ti) => {
+      const basePri = priceMap[ti.item_id];
+      if (basePri != null) return sum + (ti.unit_price - basePri) * ti.quantity;
+      return sum;
+    }, 0);
   }
+
+  const [todayProfit, profit30days] = await Promise.all([
+    calcProfit(todayTxIds),
+    calcProfit(recentTxIds),
+  ]);
 
   return {
     stock: {
-      total_items: items.length,
-      in_stock: items.filter(i => i.stock > 10).length,
-      out_of_stock: items.filter(i => i.stock === 0).length,
-      low_stock: items.filter(i => i.stock > 0 && i.stock <= 10).length,
+      total_items: allItems.length,
+      in_stock: allItems.filter(i => i.stock > 10).length,
+      out_of_stock: allItems.filter(i => i.stock === 0).length,
+      low_stock: allItems.filter(i => i.stock > 0 && i.stock <= 10).length,
     },
-    lowStockItems: items.filter(i => i.stock <= 10),
+    lowStockItems: allItems.filter(i => i.stock <= 10),
     today: {
-      transaction_count: todayTxs.length,
+      transaction_count: todayTransactions.length,
       total_revenue: todayRevenue,
-      avg_transaction: todayTxs.length > 0 ? todayRevenue / todayTxs.length : 0,
-      total_profit: calcProfit(todayTxIds),
+      avg_transaction: todayTransactions.length > 0 ? todayRevenue / todayTransactions.length : 0,
+      total_profit: todayProfit,
     },
-    profit_30days: calcProfit(recentTxIds),
+    profit_30days: profit30days,
   };
 }
 
 // Reset transactions (keep inventory)
-export function resetTransactions() {
-  setList(KEYS.TRANSACTIONS, []);
-  setList(KEYS.TRANSACTION_ITEMS, []);
+export async function resetTransactions() {
+  await supabase.from('transaction_items').delete().neq('id', 0);
+  await supabase.from('transactions').delete().neq('id', 0);
   return { success: true, message: 'All transactions cleared. Inventory preserved.' };
 }
 
 // Export all data as a downloadable JSON file
-export function exportDataAsFile() {
-  const data = {
-    users: getList(KEYS.USERS),
-    items: getList(KEYS.ITEMS),
-    categories: getList(KEYS.CATEGORIES),
-    transactions: getList(KEYS.TRANSACTIONS),
-    transaction_items: getList(KEYS.TRANSACTION_ITEMS),
-    exported_at: new Date().toISOString(),
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+export async function exportDataAsFile() {
+  const [{ data: users }, { data: items }, { data: categories }, { data: transactions }, { data: transaction_items }] =
+    await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('items').select('*'),
+      supabase.from('categories').select('*'),
+      supabase.from('transactions').select('*'),
+      supabase.from('transaction_items').select('*'),
+    ]);
+
+  const payload = { users, items, categories, transactions, transaction_items, exported_at: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -331,12 +353,12 @@ export function exportDataAsFile() {
   return { success: true, message: 'Data exported successfully' };
 }
 
-// Import data from a JSON backup file
-export function importDataFromObject(data) {
-  if (data.users) setList(KEYS.USERS, data.users);
-  if (data.items) setList(KEYS.ITEMS, data.items);
-  if (data.categories) setList(KEYS.CATEGORIES, data.categories);
-  if (data.transactions) setList(KEYS.TRANSACTIONS, data.transactions);
-  if (data.transaction_items) setList(KEYS.TRANSACTION_ITEMS, data.transaction_items);
+// Import data from a JSON backup file (upsert into Supabase)
+export async function importDataFromObject(data) {
+  if (data.categories?.length) await supabase.from('categories').upsert(data.categories, { onConflict: 'id' });
+  if (data.users?.length) await supabase.from('users').upsert(data.users, { onConflict: 'id' });
+  if (data.items?.length) await supabase.from('items').upsert(data.items, { onConflict: 'id' });
+  if (data.transactions?.length) await supabase.from('transactions').upsert(data.transactions, { onConflict: 'id' });
+  if (data.transaction_items?.length) await supabase.from('transaction_items').upsert(data.transaction_items, { onConflict: 'id' });
   return { success: true, message: 'Data imported successfully' };
 }
