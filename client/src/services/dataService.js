@@ -13,6 +13,10 @@ function apiError(message) {
 
 // Auth
 export async function login(username, password) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw apiError('Supabase is not configured. Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY environment variables.');
+  }
+
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -20,7 +24,8 @@ export async function login(username, password) {
     .eq('password', password)
     .single();
 
-  if (error || !data) throw apiError('Invalid username or password');
+  if (error) throw apiError(`Database error: ${error.message}`);
+  if (!data) throw apiError('Invalid username or password');
 
   const token = `local_${data.id}_${Date.now()}`;
   return {
