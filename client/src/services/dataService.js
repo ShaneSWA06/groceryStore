@@ -154,6 +154,24 @@ export function deleteCategory(id) {
   return { message: 'Category deleted' };
 }
 
+// Transactions
+export function getTransactions() {
+  const transactions = getList(KEYS.TRANSACTIONS);
+  const txItems = getList(KEYS.TRANSACTION_ITEMS);
+  return transactions.map(t => ({
+    ...t,
+    item_count: txItems.filter(ti => ti.transaction_id === t.transaction_id).length,
+  })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+export function getTransactionById(transactionId) {
+  const transactions = getList(KEYS.TRANSACTIONS);
+  const txItems = getList(KEYS.TRANSACTION_ITEMS);
+  const tx = transactions.find(t => t.transaction_id === transactionId);
+  if (!tx) throw apiError('Transaction not found');
+  return { ...tx, items: txItems.filter(ti => ti.transaction_id === transactionId) };
+}
+
 // Users
 export function getUsers() {
   initializeIfEmpty();

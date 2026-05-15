@@ -17,6 +17,8 @@ const api = {
     if (url === '/users') return ok(ds.getUsers());
     if (url === '/statistics') return ok(ds.getStatistics());
     if (url.startsWith('/sales/scan/')) return ok(ds.getItemByBarcode(parseTrailingId(url, '/sales/scan/')));
+    if (url === '/transactions') return ok(ds.getTransactions());
+    if (url.startsWith('/transactions/')) return ok(ds.getTransactionById(parseTrailingId(url, '/transactions/')));
     if (url === '/backup/list') return ok({ backups: [] });
     return Promise.reject(new Error(`Unknown GET: ${url}`));
   },
