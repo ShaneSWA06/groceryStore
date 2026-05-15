@@ -37,7 +37,8 @@ export async function login(username, password) {
 // Items
 export async function getItems() {
   const { data, error } = await supabase.from('items').select('*').order('name');
-  if (error) throw apiError(error.message);
+  if (error) { console.error('getItems error:', error); throw apiError(error.message); }
+  console.log('getItems returned', data?.length, 'rows');
   return data;
 }
 
@@ -265,15 +266,19 @@ export async function getStatistics() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [{ data: items }, { data: todayTxs }, { data: recentTxs }] = await Promise.all([
+  const [itemsRes, todayTxsRes, recentTxsRes] = await Promise.all([
     supabase.from('items').select('id, stock'),
     supabase.from('transactions').select('transaction_id, total_amount').gte('created_at', today.toISOString()),
     supabase.from('transactions').select('transaction_id').gte('created_at', thirtyDaysAgo.toISOString()),
   ]);
 
-  const allItems = items || [];
-  const todayTransactions = todayTxs || [];
-  const recentTransactions = recentTxs || [];
+  if (itemsRes.error) console.error('items fetch error:', itemsRes.error);
+  if (todayTxsRes.error) console.error('todayTxs fetch error:', todayTxsRes.error);
+  if (recentTxsRes.error) console.error('recentTxs fetch error:', recentTxsRes.error);
+
+  const allItems = itemsRes.data || [];
+  const todayTransactions = todayTxsRes.data || [];
+  const recentTransactions = recentTxsRes.data || [];
 
   const todayRevenue = todayTransactions.reduce((sum, t) => sum + t.total_amount, 0);
   const todayTxIds = new Set(todayTransactions.map(t => t.transaction_id));
