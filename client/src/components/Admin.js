@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
+import { exportDataAsFile, importDataFromObject, resetTransactions } from "../services/dataService";
 import BarcodeScanner from "./BarcodeScanner";
 import Sidebar from "./Sidebar";
 
@@ -28,8 +29,6 @@ function Admin() {
   const barcodeInputRef = useRef(null);
 
   const [user, setUser] = useState(null);
-  const [backups, setBackups] = useState([]);
-  const [backupLoading, setBackupLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userFormData, setUserFormData] = useState({
@@ -145,49 +144,47 @@ function Admin() {
     }
   };
 
-  const fetchBackups = async () => {
+  const fetchBackups = () => {};
+
+  const handleExportData = () => {
     try {
-      const response = await api.get("/backup/list");
-      setBackups(response.data.backups || []);
+      exportDataAsFile();
+      setSuccess("Data exported successfully as JSON file");
     } catch (err) {
-      console.error("Failed to fetch backups:", err);
+      setError("Failed to export data");
     }
   };
 
-  const handleCreateBackup = async () => {
-    setBackupLoading(true);
-    try {
-      const response = await api.post("/backup/create");
-      if (response.data.success) {
-        setSuccess(`Backup created: ${response.data.backup.filename}`);
-        fetchBackups();
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to create backup");
-    } finally {
-      setBackupLoading(false);
-    }
-  };
-
-  const handleCleanupBackups = async () => {
-    if (
-      !window.confirm(
-        "Delete old backups? This will keep only the 30 most recent backups."
-      )
-    ) {
+  const handleImportData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!window.confirm("Import data from this file? This will overwrite all current data.")) {
+      e.target.value = "";
       return;
     }
-    setBackupLoading(true);
-    try {
-      const response = await api.post("/backup/cleanup", { keepCount: 30 });
-      if (response.data.success) {
-        setSuccess(response.data.message);
-        fetchBackups();
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = JSON.parse(evt.target.result);
+        importDataFromObject(data);
+        setSuccess("Data imported successfully. Refreshing...");
+        setTimeout(() => window.location.reload(), 1000);
+      } catch {
+        setError("Invalid backup file");
       }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleResetTransactions = () => {
+    if (!window.confirm("Delete ALL transactions? Inventory will be preserved.")) return;
+    try {
+      resetTransactions();
+      setSuccess("All transactions cleared. Inventory preserved.");
+      fetchStatistics();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to cleanup backups");
-    } finally {
-      setBackupLoading(false);
+      setError("Failed to reset transactions");
     }
   };
 
@@ -1264,9 +1261,9 @@ function Admin() {
         </div>
       )}
 
-      {/* Database Access - Show in inventory view */}
+      {/* Data Management - Show in inventory view */}
       {currentView === 'inventory' && user?.role === "admin" && (
-        <div className="card desktop-only">
+        <div className="card">
           <div
             className="section-header"
             style={{
@@ -1276,160 +1273,59 @@ function Admin() {
               marginBottom: "20px",
             }}
           >
-            <h2>Database Access</h2>
+            <h2>Data Management</h2>
           </div>
-          <div
-            style={{
-              padding: "15px",
-              background: "var(--bg-secondary)",
-              borderRadius: "8px",
-              marginBottom: "15px",
-            }}
-          >
-            <p style={{ margin: "0 0 10px 0", color: "var(--text-secondary)" }}>
-              <strong>Database Location:</strong> The SQLite database file is stored on the server at:
-            </p>
-            <code
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
               style={{
-                display: "block",
-                padding: "10px",
-                background: "var(--bg-primary)",
-                borderRadius: "4px",
-                fontSize: "12px",
-                color: "var(--accent-color)",
-                marginBottom: "15px",
-                wordBreak: "break-all",
+                padding: "15px",
+                background: "var(--bg-secondary)",
+                borderRadius: "8px",
               }}
             >
-              server/grocery_store.db
-            </code>
-            <div style={{ marginBottom: "15px" }}>
-              <strong>How to Access:</strong>
-              <ul style={{ margin: "10px 0", paddingLeft: "20px", color: "var(--text-secondary)" }}>
-                <li>
-                  <strong>Via Admin Panel:</strong> Download the database file directly using the button below
-                </li>
-                <li>
-                  <strong>Via SSH:</strong> Connect to your server via SSH and navigate to the project directory
-                </li>
-                <li>
-                  <strong>Via FTP/SFTP:</strong> Use FileZilla or similar tools to access the server files
-                </li>
-                <li>
-                  <strong>Via Hosting Panel:</strong> Most hosting providers offer file manager access
-                </li>
-              </ul>
+              <strong>Export Data</strong>
+              <p style={{ margin: "8px 0", color: "var(--text-secondary)", fontSize: "14px" }}>
+                Download all inventory, transactions, users and categories as a JSON backup file.
+              </p>
+              <button className="btn btn-primary" onClick={handleExportData}>
+                📥 Export All Data (JSON)
+              </button>
             </div>
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                try {
-                  const token = localStorage.getItem("token");
-                  const response = await fetch("/api/database/download", {
-                    method: "GET",
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                  });
-
-                  if (!response.ok) {
-                    throw new Error("Failed to download database");
-                  }
-
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `grocery_store_${new Date().toISOString().split("T")[0]}.db`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                  setSuccess("Database file downloaded successfully");
-                } catch (err) {
-                  setError(err.response?.data?.error || "Failed to download database");
-                }
+            <div
+              style={{
+                padding: "15px",
+                background: "var(--bg-secondary)",
+                borderRadius: "8px",
               }}
             >
-              📥 Download Database File
-            </button>
+              <strong>Import Data</strong>
+              <p style={{ margin: "8px 0", color: "var(--text-secondary)", fontSize: "14px" }}>
+                Restore from a previously exported JSON backup. <span style={{ color: "var(--warning-color)" }}>⚠️ This overwrites all current data.</span>
+              </p>
+              <label className="btn btn-secondary" style={{ cursor: "pointer", display: "inline-block" }}>
+                📤 Import Backup (JSON)
+                <input type="file" accept=".json" style={{ display: "none" }} onChange={handleImportData} />
+              </label>
+            </div>
+            <div
+              style={{
+                padding: "15px",
+                background: "var(--bg-secondary)",
+                borderRadius: "8px",
+              }}
+            >
+              <strong>Reset Transactions</strong>
+              <p style={{ margin: "8px 0", color: "var(--text-secondary)", fontSize: "14px" }}>
+                Delete all transaction records while keeping inventory intact.
+              </p>
+              <button className="btn btn-danger" onClick={handleResetTransactions}>
+                🗑️ Clear All Transactions
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Database Backups - Show in inventory view */}
-      {currentView === 'inventory' && user?.role === "admin" && (
-      <div className="card desktop-only">
-        <div
-          className="section-header"
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "20px",
-          }}
-        >
-          <h2>Database Backups</h2>
-          <div>
-            <button
-              className="btn btn-primary"
-              onClick={handleCreateBackup}
-              disabled={backupLoading}
-              style={{ marginRight: "8px" }}
-            >
-              {backupLoading ? "Creating..." : "Create Backup Now"}
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleCleanupBackups}
-              disabled={backupLoading}
-            >
-              Cleanup Old Backups
-            </button>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginBottom: "16px",
-            padding: "12px",
-            background: "var(--bg-secondary)",
-            borderRadius: "6px",
-            fontSize: "13px",
-          }}
-        >
-          <strong>Automated Backups:</strong> Daily backups run automatically at
-          2:00 AM. Old backups are cleaned up weekly (keeps last 30 backups).
-        </div>
-
-        {backups.length === 0 ? (
-          <div className="empty-state">
-            <p>No backups found. Create your first backup now.</p>
-          </div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Backup File</th>
-                <th>Size</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {backups.map((backup, index) => (
-                <tr key={index}>
-                  <td>
-                    <code style={{ fontSize: "12px" }}>{backup.filename}</code>
-                  </td>
-                  <td>{backup.sizeMB} MB</td>
-                  <td>{new Date(backup.created).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-      )}
       </div>
 
       {/* Modals - Outside main-content but inside app-layout */}
