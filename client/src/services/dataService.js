@@ -22,10 +22,10 @@ export async function login(username, password) {
     .select('*')
     .eq('username', username)
     .eq('password', password)
-    .single();
+    .maybeSingle();
 
   if (error) throw apiError(`Database error: ${error.message}`);
-  if (!data) throw apiError('Invalid username or password');
+  if (!data) throw apiError('Invalid username or password — check credentials or contact admin');
 
   const token = `local_${data.id}_${Date.now()}`;
   return {
