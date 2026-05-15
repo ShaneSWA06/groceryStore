@@ -1,0 +1,27 @@
+{
+  "name": "Grocery Store POS",
+  "short_name": "GroceryPOS",
+  "description": "Point of Sale System for Grocery Store Management",
+  "start_url": "/login",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#c17f3a",
+  "background_color": "#1a1a1a",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/images/zawkhinLogoTrans.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/zawkhinLogoTrans.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en"
+}

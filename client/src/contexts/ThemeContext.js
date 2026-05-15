@@ -12,23 +12,32 @@ export const useTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    // Get theme from localStorage or default to 'light'
     const savedTheme = localStorage.getItem("theme");
     return savedTheme || "light";
   });
+  const [uiScale, setUiScale] = useState(() => {
+    const savedScale = localStorage.getItem("uiScale");
+    return savedScale || "compact";
+  });
 
   useEffect(() => {
-    // Apply theme to document
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-ui-scale", uiScale);
+    localStorage.setItem("uiScale", uiScale);
+  }, [uiScale]);
 
   const toggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, toggleTheme, uiScale, setUiScale }}
+    >
       {children}
     </ThemeContext.Provider>
   );

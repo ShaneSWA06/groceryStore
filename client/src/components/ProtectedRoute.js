@@ -6,23 +6,15 @@ function ProtectedRoute({ children, requiredRole }) {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
 
   if (!token || !user) {
-    // Redirect to appropriate login based on required role
-    if (requiredRole === 'admin') {
-      return <Navigate to="/admin-login" replace />;
-    }
     return <Navigate to="/login" replace />;
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    // If admin route but user is not admin, redirect to admin login
-    if (requiredRole === 'admin') {
-      return <Navigate to="/admin-login" replace />;
-    }
-    return <Navigate to="/cashier" replace />;
+    // Wrong role — send them to their correct page
+    return <Navigate to={user.role === 'admin' ? '/admin' : '/cashier'} replace />;
   }
 
   return children;
 }
 
 export default ProtectedRoute;
-

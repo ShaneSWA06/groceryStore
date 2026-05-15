@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
+import { playScanSuccess, playScanError } from "../utils/sounds";
 import BarcodeScanner from "./BarcodeScanner";
 import Sidebar from "./Sidebar";
 
@@ -113,11 +114,13 @@ function Cashier() {
           ];
         }
       });
+      playScanSuccess();
     } catch (err) {
       const errorMsg =
         err.response?.data?.error ||
         "Item not found. Please add it in Admin section first.";
       setError(errorMsg);
+      playScanError();
     } finally {
       setLoading(false);
       isProcessing.current = false;
@@ -240,6 +243,29 @@ function Cashier() {
   };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem("sidebarCollapsed") === "true";
+  });
+  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebarCollapsed", String(next));
+      return next;
+    });
+  };
+
+  const handleOpenMenu = () => {
+    if (window.innerWidth <= 768) {
+      setSidebarOpen(true);
+      return;
+    }
+
+    if (sidebarCollapsed) {
+      handleToggleSidebar();
+    }
+  };
 
   return (
     <div className="app-layout">
@@ -248,12 +274,14 @@ function Cashier() {
         onLogout={handleLogout}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
       />
-      <div className="main-content">
+      <div className={`main-content ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
         {/* Mobile Menu Button */}
         <button
           className="mobile-menu-btn"
-          onClick={() => setSidebarOpen(true)}
+          onClick={handleOpenMenu}
           aria-label="Open menu"
         >
           <span></span>
@@ -261,283 +289,197 @@ function Cashier() {
         {error && <div className="alert alert-error">{error}</div>}
 
         {!showReceipt ? (
-          <div className="cashier-layout">
-            {/* Left Column - Product Scanning */}
-            <div className="cashier-left-column">
-              <div className="card cashier-scan-card">
-                <div style={{ marginBottom: "24px" }}>
-                  <h2 style={{ marginBottom: "8px" }}>Scan Items</h2>
-                  <p
-                    style={{ color: "var(--text-secondary)", fontSize: "14px" }}
-                  >
-                    Use camera scanner or USB barcode scanner to add items to
-                    cart
-                  </p>
+          <div className="cashier-shell">
+            <section className="cashier-topbar card">
+              <div>
+                <div className="cashier-topbar-kicker">Sales counter</div>
+                <h1 className="cashier-topbar-title">Live checkout terminal</h1>
+                <p className="cashier-topbar-copy">
+                  Scan items, watch the cart, and close the sale without dashboard clutter.
+                </p>
+              </div>
+              <div className="cashier-topbar-metrics">
+                <div className="cashier-metric">
+                  <span className="cashier-metric-label">Cashier</span>
+                  <strong>{user?.fullName || user?.username || "Active user"}</strong>
                 </div>
-
-                <div style={{ marginBottom: "24px", flex: "1", minHeight: 0 }}>
-                  <BarcodeScanner
-                    onScan={handleCameraScan}
-                    onError={(err) => {
-                      if (
-                        err &&
-                        !err.includes("NotFoundException") &&
-                        !err.includes("No MultiFormat") &&
-                        !err.includes("not found")
-                      ) {
-                        setError(`Camera error: ${err}`);
-                      }
-                    }}
-                  />
+                <div className="cashier-metric">
+                  <span className="cashier-metric-label">Items</span>
+                  <strong>{totalItems}</strong>
                 </div>
+                <div className="cashier-metric">
+                  <span className="cashier-metric-label">Total</span>
+                  <strong>MMK {formatCurrency(calculateTotal())}</strong>
+                </div>
+              </div>
+            </section>
 
-                <div className="form-group" style={{ marginTop: "24px" }}>
-                  <label>Barcode Input</label>
-                  <input
-                    ref={barcodeInputRef}
-                    type="text"
-                    className="scan-input"
-                    placeholder="Search products or scan barcode..."
-                    value={barcodeInput}
-                    onChange={handleInputChange}
-                    onKeyDown={handleBarcodeScan}
-                    disabled={loading}
-                    autoComplete="off"
-                    autoFocus
-                  />
-                  {loading && (
-                    <p
-                      style={{
-                        textAlign: "center",
-                        color: "var(--text-secondary)",
-                        marginTop: "12px",
-                        fontSize: "14px",
+            <div className="cashier-layout">
+              <div className="cashier-left-column">
+                <div className="card cashier-scan-card cashier-panel">
+                  <div className="cashier-panel-header">
+                    <div>
+                      <div className="cashier-panel-kicker">Input</div>
+                      <h2>Item scanning</h2>
+                      <p>Use the camera, a USB scanner, or direct barcode entry.</p>
+                    </div>
+                    <div className="cashier-panel-chip">
+                      {loading ? "Processing" : "Ready"}
+                    </div>
+                  </div>
+
+                  <div className="cashier-scanner-wrap">
+                    <BarcodeScanner
+                      onScan={handleCameraScan}
+                      onError={(err) => {
+                        if (
+                          err &&
+                          !err.includes("NotFoundException") &&
+                          !err.includes("No MultiFormat") &&
+                          !err.includes("not found")
+                        ) {
+                          setError(`Camera error: ${err}`);
+                        }
                       }}
-                    >
-                      Processing...
-                    </p>
+                    />
+                  </div>
+
+                  <div className="cashier-entry-section">
+                    <div className="form-group cashier-entry-group">
+                      <label>Barcode entry</label>
+                      <input
+                        ref={barcodeInputRef}
+                        type="text"
+                        className="scan-input"
+                        placeholder="Type barcode or scan into this field"
+                        value={barcodeInput}
+                        onChange={handleInputChange}
+                        onKeyDown={handleBarcodeScan}
+                        disabled={loading}
+                        autoComplete="off"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="cashier-help-strip">
+                      <span>Press Enter after typing a code.</span>
+                      <span>Repeated scans increase quantity.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="cashier-right-column">
+                <div className="card cashier-cart-card cashier-panel">
+                  <div className="cashier-panel-header">
+                    <div>
+                      <div className="cashier-panel-kicker">Current order</div>
+                      <h2>Cart summary</h2>
+                      <p>Review line items before payment.</p>
+                    </div>
+                    <div className="cashier-cart-total">
+                      MMK {formatCurrency(calculateTotal())}
+                    </div>
+                  </div>
+
+                  {cart.length === 0 ? (
+                    <div className="cashier-empty-state">
+                      <div className="cashier-empty-mark">ORDER</div>
+                      <h3>No items in the cart</h3>
+                      <p>Start scanning from the left panel to build the current sale.</p>
+                    </div>
+                  ) : (
+                    <div className="cashier-cart-body">
+                      <div className="cashier-cart-table-wrap">
+                        <table className="cashier-cart-table">
+                          <thead>
+                            <tr>
+                              <th>Item</th>
+                              <th>Price</th>
+                              <th>Qty</th>
+                              <th>Total</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cart.map((item) => (
+                              <tr key={item.itemId}>
+                                <td>
+                                  <div className="cashier-item-cell">
+                                    <strong>{item.name}</strong>
+                                    <small>{item.barcode}</small>
+                                  </div>
+                                </td>
+                                <td>MMK {formatCurrency(item.unitPrice)}</td>
+                                <td>
+                                  <div className="cashier-qty-control">
+                                    <button
+                                      className="cashier-qty-btn"
+                                      onClick={() => updateQuantity(item.itemId, -1)}
+                                    >
+                                      -
+                                    </button>
+                                    <span>{item.quantity}</span>
+                                    <button
+                                      className="cashier-qty-btn"
+                                      onClick={() => updateQuantity(item.itemId, 1)}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </td>
+                                <td>MMK {formatCurrency(item.totalPrice)}</td>
+                                <td>
+                                  <button
+                                    className="btn btn-secondary cashier-remove-btn"
+                                    onClick={() => removeItem(item.itemId)}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="cashier-checkout-panel">
+                        <div className="cashier-checkout-row">
+                          <span>Lines</span>
+                          <strong>{cart.length}</strong>
+                        </div>
+                        <div className="cashier-checkout-row">
+                          <span>Units</span>
+                          <strong>{totalItems}</strong>
+                        </div>
+                        <div className="cashier-checkout-row">
+                          <span>Subtotal</span>
+                          <strong>MMK {formatCurrency(calculateTotal())}</strong>
+                        </div>
+                        <div className="cashier-checkout-row total">
+                          <span>Amount due</span>
+                          <strong>MMK {formatCurrency(calculateTotal())}</strong>
+                        </div>
+                        <button
+                          className="btn btn-success cashier-checkout-btn"
+                          onClick={handleCheckout}
+                          disabled={cart.length === 0 || loading}
+                        >
+                          {loading ? "Processing sale..." : "Complete checkout"}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
-
-            {/* Right Column - Shopping Cart */}
-            <div className="cashier-right-column">
-              <div className="card cashier-cart-card">
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <img
-                    src="/images/zawkhinLogo.PNG"
-                    alt="Logo"
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      objectFit: "contain",
-                    }}
-                  />
-                  <h2 style={{ margin: 0 }}>Shopping Cart</h2>
-                </div>
-                {cart.length === 0 ? (
-                  <div
-                    className="empty-state"
-                    style={{
-                      flex: "1",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <img
-                      src="/images/zawkhinLogoTrans.png"
-                      alt="Empty Cart"
-                      className="empty-cart-logo"
-                      style={{
-                        width: "120px",
-                        height: "120px",
-                        marginBottom: "16px",
-                        objectFit: "contain",
-                      }}
-                    />
-                    <p
-                      style={{
-                        fontSize: "16px",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      Cart is empty
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      flex: "1",
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        flex: "1",
-                        overflowY: "auto",
-                        marginBottom: "20px",
-                      }}
-                    >
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Item</th>
-                            <th>Price</th>
-                            <th>Qty</th>
-                            <th>Total</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cart.map((item) => (
-                            <tr key={item.itemId}>
-                              <td>
-                                <div>
-                                  <strong>{item.name}</strong>
-                                  <br />
-                                  <small
-                                    style={{
-                                      color: "var(--text-secondary)",
-                                      fontSize: "12px",
-                                    }}
-                                  >
-                                    {item.barcode}
-                                  </small>
-                                </div>
-                              </td>
-                              <td>MMK {formatCurrency(item.unitPrice)}</td>
-                              <td>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
-                                  }}
-                                >
-                                  <button
-                                    className="btn btn-secondary"
-                                    onClick={() =>
-                                      updateQuantity(item.itemId, -1)
-                                    }
-                                    style={{
-                                      padding: "4px 8px",
-                                      fontSize: "12px",
-                                      minWidth: "28px",
-                                    }}
-                                  >
-                                    -
-                                  </button>
-                                  <span
-                                    style={{
-                                      minWidth: "30px",
-                                      textAlign: "center",
-                                    }}
-                                  >
-                                    {item.quantity}
-                                  </span>
-                                  <button
-                                    className="btn btn-secondary"
-                                    onClick={() =>
-                                      updateQuantity(item.itemId, 1)
-                                    }
-                                    style={{
-                                      padding: "4px 8px",
-                                      fontSize: "12px",
-                                      minWidth: "28px",
-                                    }}
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </td>
-                              <td>MMK {formatCurrency(item.totalPrice)}</td>
-                              <td>
-                                <button
-                                  className="btn btn-danger"
-                                  onClick={() => removeItem(item.itemId)}
-                                  style={{
-                                    padding: "4px 8px",
-                                    fontSize: "12px",
-                                  }}
-                                >
-                                  Remove
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="total-section">
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: "12px",
-                          fontSize: "16px",
-                        }}
-                      >
-                        <span>Subtotal:</span>
-                        <span>
-                          MMK{" "}
-                          {formatCurrency(
-                            cart.reduce((sum, item) => sum + item.totalPrice, 0)
-                          )}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "24px",
-                          fontWeight: "700",
-                          paddingTop: "12px",
-                          borderTop: "2px solid var(--border-color)",
-                        }}
-                      >
-                        <span>Total:</span>
-                        <span style={{ color: "var(--success-color)" }}>
-                          MMK {formatCurrency(calculateTotal())}
-                        </span>
-                      </div>
-                      <button
-                        className="btn btn-success"
-                        onClick={handleCheckout}
-                        disabled={cart.length === 0 || loading}
-                        style={{
-                          width: "100%",
-                          marginTop: "20px",
-                          padding: "14px",
-                          fontSize: "16px",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {loading ? "Processing..." : "Complete Checkout"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         ) : (
-          <div className="card">
+          <div className="card cashier-receipt-card">
             <div className="receipt" id="receipt">
               <div className="receipt-header">
-                <h2>GROCERY STORE</h2>
-                <p>Receipt</p>
+                <h2>ZAW KHIN MARKET</h2>
+                <p>Sales receipt</p>
                 <p style={{ fontSize: "10px" }}>
                   Transaction: {lastTransaction.transactionId}
                 </p>
@@ -570,10 +512,10 @@ function Cashier() {
                   fontSize: "10px",
                 }}
               >
-                Thank you for your purchase!
+                Thank you for shopping with us.
               </div>
             </div>
-            <div style={{ marginTop: "20px", textAlign: "center" }}>
+            <div className="cashier-receipt-actions">
               <button className="btn btn-primary" onClick={handlePrintReceipt}>
                 Print Receipt
               </button>
